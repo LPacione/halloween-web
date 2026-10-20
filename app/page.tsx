@@ -49,14 +49,47 @@ function Countdown() {
 }
 
 function RSVPForm() {
-  const [sent, setSent] = useState(false); const [status, setStatus] = useState<'going' | 'not-going'>('going'); const [error, setError] = useState('')
-  function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setError(''); const form = new FormData(event.currentTarget); if (String(form.get('name') ?? '').trim().length < 2) { setError('Déjanos tu nombre para saber quién viene.'); return }; setSent(true) }
-  if (sent) return <div className="success-box"><span className="success-icon"><Check /></span><p className="eyebrow">Mensaje recibido</p><h3>Tu respuesta ha sido registrada.</h3><p>Esta vista previa está lista para Supabase. Conecta la base de datos antes de enviar la invitación real para guardar las confirmaciones.</p><button className="text-button" onClick={() => setSent(false)}>Editar mi respuesta <ChevronRight /></button></div>
+  const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [status, setStatus] = useState<'going' | 'not-going'>('going')
+  const [error, setError] = useState('')
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+    const form = new FormData(event.currentTarget)
+    const name = String(form.get('name') ?? '').trim()
+    if (name.length < 2) {
+      setError('Déjanos tu nombre para saber quién viene.')
+      return
+    }
+    setSending(true)
+    try {
+      const response = await fetch('/api/rsvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          status,
+          guests: Number(form.get('guests') ?? 1),
+          comment: String(form.get('comment') ?? '').trim(),
+        }),
+      })
+      if (!response.ok) throw new Error('request failed')
+      setSent(true)
+    } catch {
+      setError('No pudimos guardar tu respuesta. Intentá de nuevo.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (sent) return <div className="success-box"><span className="success-icon"><Check /></span><p className="eyebrow">Mensaje recibido</p><h3>Tu respuesta ha sido registrada.</h3><p>Gracias por confirmar.</p><button className="text-button" onClick={() => setSent(false)}>Editar mi respuesta <ChevronRight /></button></div>
   return <form className="rsvp-form" onSubmit={submit}>
     <label>Nombre y apellido<input name="name" placeholder="Tu nombre" required /></label>
     <div className="form-row"><label>¿Vas a venir?<div className="choice-row"><button type="button" className={status === 'going' ? 'choice active' : 'choice'} onClick={() => setStatus('going')}>Voy a estar ahí</button><button type="button" className={status === 'not-going' ? 'choice active' : 'choice'} onClick={() => setStatus('not-going')}>No puedo ir</button></div></label><label>Invitados<select name="guests" defaultValue="1"><option>1</option><option>2</option><option>3</option><option>4</option></select></label></div>
     <label>Nota para los anfitriones<textarea name="comment" placeholder="¿Hay algo que debamos saber?" rows={3} /></label>
-    {error && <p className="form-error" role="alert">{error}</p>}<button className="primary-button" type="submit">Enviar mi respuesta <Send /></button>
+    {error && <p className="form-error" role="alert">{error}</p>}<button className="primary-button" type="submit" disabled={sending}>{sending ? 'Enviando...' : 'Enviar mi respuesta'} {!sending && <Send />}</button>
   </form>
 }
 
